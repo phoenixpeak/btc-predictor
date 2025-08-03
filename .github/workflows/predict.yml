@@ -1,0 +1,23 @@
+name: Daily BTC Prediction
+
+on:
+  schedule:
+    - cron: '0 7 * * *' # Runs every day at 07:00 UTC
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  run-prediction:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run prediction
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
+        run: python openai_predict.py
