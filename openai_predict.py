@@ -1,9 +1,11 @@
 import json
 import os
 import requests
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from openai import OpenAI
-import random
+import csv
+import os
+
 
 def load_config():
     config = {}
@@ -114,17 +116,6 @@ def get_actual_movement(yesterday, today, threshold=SAME_THRESHOLD):
         return "SAME"
     return "UP" if today > yesterday else "DOWN"
 
-# ========== LOGGING ==========
-def load_log():
-    if os.path.exists(LOG_FILE):
-        with open(LOG_FILE, "r") as f:
-            return json.load(f)
-    return []
-
-def save_log(data):
-    with open(LOG_FILE, "w") as f:
-        json.dump(data, f, indent=2)
-
 # ========== MAIN ROUTINE ==========
 def run_daily_prediction():
     config = load_config()
@@ -147,25 +138,34 @@ def run_daily_prediction():
     actual = get_actual_movement(y_price, t_price)
     correct = gpt_result["prediction"] == actual
 
-    entry = {
-        "date": today,
-        "headlines": headlines,
-        "prediction": gpt_result["prediction"],
-        "confidence": gpt_result["confidence"],
-        "reason": gpt_result["reason"],
-        "yesterday_price": y_price,
-        "today_price": t_price,
-        "actual": actual,
-        "correct": correct
-    }
-
-    logs = load_log()
-    logs.append(entry)
-    save_log(logs)
-
     print(f"\n✅ Prediction for {today}: {gpt_result['prediction']} | Actual: {actual} | Correct: {correct}")
     print("🧠 Confidence:", gpt_result["confidence"])
     print("📚 Reason:", gpt_result["reason"])
+
+    # Log the prediction
+    now = datetime.now(timezone.utc)
+    log_path = "btc_predictions_log.csv"
+    fieldnames = [
+        "date", "time", "prediction", "confidence", "actual", "correct",
+        "yesterday_price", "today_price", "reason"
+    ]
+
+    write_header = not os.path.exists(log_path)
+    with open(log_path, "a", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        if write_header:
+            writer.writeheader()
+        writer.writerow({
+            "date": now.date().isoformat(),
+            "time": now.time().strftime("%H:%M:%S"),
+            "prediction": gpt_result["prediction"],
+            "confidence": gpt_result["confidence"],
+            "actual": actual,
+            "correct": correct,
+            "yesterday_price": y_price,
+            "today_price": t_price,
+            "reason": gpt_result["reason"]
+        })
 
 # ========== ENTRY POINT ==========
 if __name__ == "__main__":
