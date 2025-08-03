@@ -2,22 +2,63 @@ name: Daily BTC Prediction
 
 on:
   schedule:
-    - cron: '48 17 * * *' # Runs every day at 10:00 UTC
-  workflow_dispatch: # Allows manual triggering
+    - cron: '0 7 * * *'  # Runs every day at 7:00 UTC
+  workflow_dispatch:
 
 jobs:
   run-prediction:
+    if: github.actor != 'github-actions[bot]'  # Prevent self-triggering
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: true  # Required to push later
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
+
       - name: Install dependencies
-        run: pip install -r requirements.txt
-      - name: Run prediction
+        run: pip install openai requests
+
+      - name: Download latest prediction log (if any)
+        run: |
+          mkdir -p log
+          echo "{}" > log/placeholder.json
+          gh run list --limit 1 --json databaseId --jq '.[0].databaseId' > run_id.txt
+          RUN_ID=$(cat run_id.txt)
+          gh run download $RUN_ID -n btc-log --dir log || echo "No previous log found"
+          mv log/btc_predictions_log.json btc_predictions_log.json || echo "Starting new log"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run prediction script
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
         run: python openai_predict.py
+
+      - name: Upload updated BTC prediction log as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-log
+          path: btc_predictions_log.json
+
+      - name: Commit and push updated log to repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git pull origin main
+          git add btc_predictions_log.json
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Update BTC prediction log [auto]"
+            git push origin main
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
