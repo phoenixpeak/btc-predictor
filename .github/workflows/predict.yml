@@ -56,10 +56,11 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git pull origin main
           git add btc_predictions_log.csv
+          git add gold_predictions_log.csv
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
-            git commit -m "Update BTC prediction log [auto]"
+            git commit -m "Update BTC and Gold prediction logs [auto]"
             git push origin main
           fi
         env:
