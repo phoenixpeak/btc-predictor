@@ -41,12 +41,15 @@ jobs:
           NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
         run: python openai_predict.py
 
-      - name: Upload updated log as artifact
+      - name: Upload prediction logs
         uses: actions/upload-artifact@v4
         with:
-          name: btc-log
-          path: btc_predictions_log.csv
-
+          name: predictions-${{ github.run_number }}
+          path: |
+            btc_predictions_log.csv
+            gold_predictions_log.csv
+          if-no-files-found: warn
+    
       - name: Commit and push updated log
         run: |
           git config user.name "github-actions[bot]"
